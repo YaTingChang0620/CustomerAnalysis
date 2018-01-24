@@ -1,6 +1,6 @@
 library(tidyverse)
-ecdf_raw<-read_csv("data.csv")
-ecdf <- ecdf_raw
+library(lubridate)
+ecdf <-read_csv("data.csv")
 
 ## Handling missing value and outlier ##
 #Determine the possible explaination for NA 
@@ -33,7 +33,6 @@ joinbyID <- function(df,id){
   return(cust.stat)
 }
 
-
 # total transactions:
 trans <- ecdf %>%
   filter(!str_detect(InvoiceNo,"C")) %>%
@@ -62,7 +61,12 @@ upt <- upt_temp %>%
   summarise(unitPT=median(ttl))
 cust.stat <- joinbyID(upt,"CustomerID")
 
-
-
-
+# Time Interval(day):
+ecdf$date <- mdy(str_split(ecdf$InvoiceDate," ",simplify = TRUE)[,1])
+TI <- ecdf %>%
+  filter(!str_detect(InvoiceNo,"C")) %>%
+  select(CustomerID,InvoiceNo,InvoiceDate,date)
+TI <- unique(TI[,1:4])  
+TI <- TI %>%
+  arrange(CustomerID,InvoiceNo,date)
 
