@@ -1,24 +1,9 @@
 library(tidyverse)
 library(lubridate)
+library(stringr)
+source("utils.R") # to include functions in utils.R
+
 ecdf <-read_csv("data.csv")
-
-
-### user-defined functions ###
-my.fillNA <- function(x, fill){
-  # x: a vector with NA
-  # fill: any value would like to replace NA
-  i <- which(is.na(x))
-  if(length(i)>0){
-    x[i] <- rep(fill, length(i))
-  }
-  return(x)
-}
-
-my.joinbyID <- function(df,id){
-  cust.stat <- cust.stat %>%
-    left_join(df,by=id)
-  return(cust.stat)
-}
 
 ##############################
 ## Handling missing value and outlier ##
@@ -94,7 +79,37 @@ ecdf$date <- mdy(str_split(ecdf$InvoiceDate," ",simplify = TRUE)[,1])
 TI <- ecdf %>%
   filter(!str_detect(InvoiceNo,"C")) %>%
   select(CustomerID,InvoiceNo,InvoiceDate,date)
-TI <- unique(TI[,1:4])  
+TI <- unique(TI[,1:4])
+
+TI <- TI %>% mutate(InvoiceHour=substr(InvoiceDate,(nchar(InvoiceDate)-4),nchar(InvoiceDate)-3),
+                    InvoiceMon=month(TI$date),
+                    InvoiceWeekDays=weekdays(TI$date))
+
+TI$InvoiceWeekDays <- factor(TI$InvoiceWeekDays,levels = c("周日","周一","周二","周三","周四","周五"))
+TI$InvoiceHour <- as.numeric(TI$InvoiceHour)
+TI$InvoiceMon <- as.numeric(TI$InvoiceMon)
+# my.getSeason and my.getPeriod
+TI <- TI %>% mutate(InvoiceSeason=my.getSeason(InvoiceMon),
+                    InvoicePeriod=my.getPeriod(InvoiceHour))
+
+# because the below features are discrete => to factor
+TI$InvoiceHour <- factor(TI$InvoiceHour, levels=seq(min(TI$InvoiceHour), max(TI$InvoiceHour)))
+TI$InvoiceMon <- factor(TI$InvoiceMon, levels=seq(min(TI$InvoiceMon), max(TI$InvoiceMon)))
+TI$InvoiceSeason <- factor(TI$InvoiceSeason, levels = c("spring","summer","autumn","winter"))
+TI$InvoicePeriod <- factor(TI$InvoicePeriod, levels = c("morning","noon","afternoon","night"))
+
+mycol <- c('#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd')
+
+my.stat.plot(TI, "InvoiceHour", "plot")
+my.stat.plot(TI, "InvoicePeriod", "plot")
+my.stat.plot(TI, "InvoiceSeason", "plot")
+my.stat.plot(TI, "InvoiceMon", "plot")
+
+library(reshape2)
+period.stat <- dcast(TI, CustomerID~InvoicePeriod, fun.aggregate = length, fill = 0)
+season.stat <- dcast(TI, CustomerID~InvoiceSeason, fun.aggregate = length, fill = 0)
+weekday.stat <- dcast(TI, CustomerID~InvoiceWeekDays, fun.aggregate = length, fill=0)
+
 TI <- TI %>%
   arrange(CustomerID,InvoiceNo,date) %>%
   group_by(CustomerID) %>%
@@ -102,6 +117,10 @@ TI <- TI %>%
 TI$ave.interval <- my.fillNA(TI$ave.interval,0)
 
 cust.stat <- my.joinbyID(TI,"CustomerID")
+cust.stat <- my.joinbyID(period.stat, "CustomerID")
+cust.stat <- my.joinbyID(season.stat, "CustomerID")
+cust.stat <- my.joinbyID(weekday.stat, "CustomerID")
+
 
 # Total Spending #
 ttl<- ecdf %>%
@@ -110,11 +129,13 @@ ttl<- ecdf %>%
 cust.stat <- my.joinbyID(ttl,"CustomerID")
 
 # Average Spending #
-cust.stat <- cust.stat %>% 
-  group_by(CustomerID) %>%
-  mutate(aveSpend=
-           if(ttlSpend>0 && transactions==return) round(ttlSpend/transactions,2)
-         else if(ttlSpend>0)round(ttlSpend/(transactions-return),2)
-         else ttlSpend)
+cust.stat <- cust.stat %>% group_by(CustomerID) %>%
+    mutate(aveSpend= 
+               if(ttlSpend>0 && transactions==return){
+                   round(ttlSpend/transactions,2)
+                }else if(ttlSpend>0){
+                   round(ttlSpend/(transactions-return),2)
+                }else ttlSpend)
 
 
+ 
