@@ -6,6 +6,7 @@ source("utils.R") # to include functions in utils.R
 ecdf <-read_csv("data.csv")
 
 ##############################
+
 ## Handling missing value and outlier ##
 #Determine the possible explaination for NA 
 apply(ecdf,2,function(x){sum(is.na(x))})
@@ -50,6 +51,17 @@ cust.stat <- my.joinbyID(ret,"CustomerID")
 cust.stat <- cust.stat %>%
   mutate(return=ifelse(is.na(return),0,return))
 
+# return rate #
+cust <- cust.stat %>%
+  mutate(returnRate=round(return/transactions,2))
+
+# returned amount #
+rpp <- ecdf %>%
+  filter(str_detect(InvoiceNo,"C")&Description != "Discount") %>%
+  group_by(CustomerID) %>%
+  summarise(returnPrice = sum(abs(UnitPrice*Quantity)))
+cust.stat <- my.joinbyID(rpp,"CustomerID")
+
 # Units per transaction (median) #
 upt_temp <- ecdf %>%
   filter(!str_detect(InvoiceNo,"C")) %>%
@@ -59,7 +71,6 @@ upt <- upt_temp %>%
   group_by(CustomerID) %>%
   summarise(unitPT=median(ttl))
 cust.stat <- my.joinbyID(upt,"CustomerID")
-
 
 # Items per transaction (median) #
 ipt_temp <- ecdf %>%
@@ -74,8 +85,12 @@ ipt <- ipt_temp %>%
 cust.stat <- my.joinbyID(ipt,"CustomerID")
 
 
-# Time Interval(day): ##ID:17850???
+# Time Interval(day): #
 ecdf$date <- mdy(str_split(ecdf$InvoiceDate," ",simplify = TRUE)[,1])
+## another way:
+# ecdf %>%
+#   mutate(date=mdy_hm(ecdf$InvoiceDate))
+
 TI <- ecdf %>%
   filter(!str_detect(InvoiceNo,"C")) %>%
   select(CustomerID,InvoiceNo,InvoiceDate,date)
@@ -85,7 +100,7 @@ TI <- TI %>% mutate(InvoiceHour=substr(InvoiceDate,(nchar(InvoiceDate)-4),nchar(
                     InvoiceMon=month(TI$date),
                     InvoiceWeekDays=weekdays(TI$date))
 
-TI$InvoiceWeekDays <- factor(TI$InvoiceWeekDays,levels = c("周日","周一","周二","周三","周四","周五"))
+TI$InvoiceWeekDays <- factor(TI$InvoiceWeekDays,levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"))
 TI$InvoiceHour <- as.numeric(TI$InvoiceHour)
 TI$InvoiceMon <- as.numeric(TI$InvoiceMon)
 # my.getSeason and my.getPeriod
@@ -114,6 +129,7 @@ TI <- TI %>%
   arrange(CustomerID,InvoiceNo,date) %>%
   group_by(CustomerID) %>%
   summarise(ave.interval=round(mean(diff(date)),2))
+
 TI$ave.interval <- my.fillNA(TI$ave.interval,0)
 TI$ave.interval <- as.numeric(TI$ave.interval)
 
@@ -122,14 +138,14 @@ cust.stat <- my.joinbyID(period.stat, "CustomerID")
 cust.stat <- my.joinbyID(season.stat, "CustomerID")
 cust.stat <- my.joinbyID(weekday.stat, "CustomerID")
 
-
 # Total Spending #
+# Total Spending <0 : return products purchased before 2010
 ttl<- ecdf %>%
   group_by(CustomerID) %>%
   summarise(ttlSpend=sum(Quantity*UnitPrice))
 cust.stat <- my.joinbyID(ttl,"CustomerID")
 
-# Average Spending #
+# Average Spending # 
 cust.stat <- cust.stat %>% group_by(CustomerID) %>%
     mutate(aveSpend= 
                if(ttlSpend>0 && transactions==return){
@@ -138,4 +154,20 @@ cust.stat <- cust.stat %>% group_by(CustomerID) %>%
                    round(ttlSpend/(transactions-return),2)
                 }else ttlSpend)
 
- 
+# average unit price #
+aveUP <- ecdf %>%
+  filter(!str_detect(InvoiceNo,"C")) %>%
+  group_by(CustomerID) %>%
+  summarise(aveUnitPrice=median(UnitPrice))
+cust.stat <- my.joinbyID(aveUP,"CustomerID")
+
+# returned amount/total spending #
+cust.stat <- cust.stat %>%
+  mutate(`%retAmount`=round(returnPrice/ttlSpend,4))
+
+# country #
+country <- unique(ecdf[,7:8])
+dup <- which(duplicated(country$CustomerID))
+country <- country[-dup,]
+cust.stat <- my.joinbyID(country, "CustomerID")
+
