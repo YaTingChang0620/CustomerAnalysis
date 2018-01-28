@@ -2,6 +2,9 @@ library(tidyverse)
 library(lubridate)
 library(stringr)
 
+### user-defined color array ###
+mycol <- c('#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd')
+
 ### user-defined functions ###
 my.fillNA <- function(x, fill){
     # x: a vector with NA

@@ -98,14 +98,14 @@ TI$InvoiceMon <- factor(TI$InvoiceMon, levels=seq(min(TI$InvoiceMon), max(TI$Inv
 TI$InvoiceSeason <- factor(TI$InvoiceSeason, levels = c("spring","summer","autumn","winter"))
 TI$InvoicePeriod <- factor(TI$InvoicePeriod, levels = c("morning","noon","afternoon","night"))
 
-mycol <- c('#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd')
-
+# plot 
 my.stat.plot(TI, "InvoiceHour", "plot")
 my.stat.plot(TI, "InvoicePeriod", "plot")
 my.stat.plot(TI, "InvoiceSeason", "plot")
 my.stat.plot(TI, "InvoiceMon", "plot")
 
 library(reshape2)
+# cast to wide columns
 period.stat <- dcast(TI, CustomerID~InvoicePeriod, fun.aggregate = length, fill = 0)
 season.stat <- dcast(TI, CustomerID~InvoiceSeason, fun.aggregate = length, fill = 0)
 weekday.stat <- dcast(TI, CustomerID~InvoiceWeekDays, fun.aggregate = length, fill=0)
@@ -115,6 +115,7 @@ TI <- TI %>%
   group_by(CustomerID) %>%
   summarise(ave.interval=round(mean(diff(date)),2))
 TI$ave.interval <- my.fillNA(TI$ave.interval,0)
+TI$ave.interval <- as.numeric(TI$ave.interval)
 
 cust.stat <- my.joinbyID(TI,"CustomerID")
 cust.stat <- my.joinbyID(period.stat, "CustomerID")
@@ -136,6 +137,5 @@ cust.stat <- cust.stat %>% group_by(CustomerID) %>%
                 }else if(ttlSpend>0){
                    round(ttlSpend/(transactions-return),2)
                 }else ttlSpend)
-
 
  
