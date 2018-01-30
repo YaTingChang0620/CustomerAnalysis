@@ -3,32 +3,34 @@ library(lubridate)
 library(stringr)
 source("utils.R") # to include functions in utils.R
 
-ecdf <-read_csv("data.csv")
+# ecdf <-read_csv("data.csv")
 
-##############################
+# ##############################
 
-## Handling missing value and outlier ##
-#Determine the possible explaination for NA 
-apply(ecdf,2,function(x){sum(is.na(x))})
-idNa <- ecdf[which(is.na(ecdf$CustomerID)),]
-apply(idNa,2,function(x){length(unique(x))})
+# ## Handling missing value and outlier ##
+# #Determine the possible explaination for NA 
+# apply(ecdf,2,function(x){sum(is.na(x))})
+# idNa <- ecdf[which(is.na(ecdf$CustomerID)),]
+# apply(idNa,2,function(x){length(unique(x))})
 
-#distribution of unit price and quantity:
-#1).qunatity<0 -> cancelled/returned orders OR discount
-quantile(ecdf$Quantity)
-ecdf[ecdf$Quantity<0,]
-#2).unit price -> define price larger than 145 as outlier 
-quantile(ecdf$UnitPrice)
-quantile(ecdf$UnitPrice,probs=seq(0.99,1,0.0005))
+# #distribution of unit price and quantity:
+# #1).qunatity<0 -> cancelled/returned orders OR discount
+# quantile(ecdf$Quantity)
+# ecdf[ecdf$Quantity<0,]
+# #2).unit price -> define price larger than 145 as outlier 
+# quantile(ecdf$UnitPrice)
+# quantile(ecdf$UnitPrice,probs=seq(0.99,1,0.0005))
 
-# remove rows:
-# 1). customerID is NA
-# 2). unitprice equals to 0
-# 3). uniprice outlier ($145) 
-ecdf<-ecdf[!is.na(ecdf$CustomerID),]
-ecdf <- ecdf[ecdf$UnitPrice<146,]
-ecdf <- ecdf[!ecdf$UnitPrice==0,]
+# # remove rows:
+# # 1). customerID is NA
+# # 2). unitprice equals to 0
+# # 3). uniprice outlier ($145) 
+# ecdf<-ecdf[!is.na(ecdf$CustomerID),]
+# ecdf <- ecdf[ecdf$UnitPrice<146,]
+# ecdf <- ecdf[!ecdf$UnitPrice==0,]
+# saveRDS(ecdf, file="ecdf.Rds")
 
+ecdf <- readRDS("ecdf.Rds")
 
 ## Exploration(by customers)##
 cust.stat <- data.frame(CustomerID=unique(ecdf$CustomerID))
