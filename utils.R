@@ -16,6 +16,16 @@ my.fillNA <- function(x, fill){
     return(x)
 }
 
+my.fillInf <- function(x, fill){
+    # x: a vector with NA
+    # fill: any value would like to replace NA
+    i <- which(is.infinite(x))
+    if(length(i)>0){
+        x[i] <- rep(fill, length(i))
+    }
+    return(x)
+}
+
 my.joinbyID <- function(df,id){
     cust.stat <- cust.stat %>%
         left_join(df,by=id)
