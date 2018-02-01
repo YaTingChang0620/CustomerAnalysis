@@ -1,3 +1,9 @@
+# install new packages if not installed before
+requireLibrary <- c("dbscan", "Rtsne", "tidyverse", "lubridate", "stringr", "reshape2")
+for(lib in requireLibrary){
+    if(!(lib %in% installed.packages())) install.packages(lib)
+}
+
 library(tidyverse)
 library(lubridate)
 library(stringr)
@@ -63,12 +69,14 @@ rpp <- ecdf %>%
   group_by(CustomerID) %>%
   summarise(returnPrice = sum(abs(UnitPrice*Quantity)))
 cust.stat <- my.joinbyID(rpp,"CustomerID")
+cust.stat$returnPrice <- my.fillNA(cust.stat$returnPrice, fill=0)
 
 # Units per transaction (median) #
 upt_temp <- ecdf %>%
   filter(!str_detect(InvoiceNo,"C")) %>%
   group_by(CustomerID,InvoiceNo) %>%
   summarise(ttl=sum(Quantity))
+
 upt <- upt_temp %>%
   group_by(CustomerID) %>%
   summarise(unitPT=median(ttl))
@@ -102,31 +110,32 @@ TI <- TI %>% mutate(InvoiceHour=substr(InvoiceDate,(nchar(InvoiceDate)-4),nchar(
                     InvoiceMon=month(TI$date),
                     InvoiceWeekDays=weekdays(TI$date))
 
-TI$InvoiceWeekDays <- factor(TI$InvoiceWeekDays,levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"))
+TI$InvoiceWeekDays <- factor(TI$InvoiceWeekDays,levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Sunday")) # no Saturday
 TI$InvoiceHour <- as.numeric(TI$InvoiceHour)
 TI$InvoiceMon <- as.numeric(TI$InvoiceMon)
-# my.getSeason and my.getPeriod
+# my.getSeason and my.getPeriod #
 TI <- TI %>% mutate(InvoiceSeason=my.getSeason(InvoiceMon),
                     InvoicePeriod=my.getPeriod(InvoiceHour))
 
-# because the below features are discrete => to factor
+# because the below features are discrete => to factor #
 TI$InvoiceHour <- factor(TI$InvoiceHour, levels=seq(min(TI$InvoiceHour), max(TI$InvoiceHour)))
 TI$InvoiceMon <- factor(TI$InvoiceMon, levels=seq(min(TI$InvoiceMon), max(TI$InvoiceMon)))
 TI$InvoiceSeason <- factor(TI$InvoiceSeason, levels = c("spring","summer","autumn","winter"))
 TI$InvoicePeriod <- factor(TI$InvoicePeriod, levels = c("morning","noon","afternoon","night"))
 
-# plot 
+# plot #
 my.stat.plot(TI, "InvoiceHour", "plot")
 my.stat.plot(TI, "InvoicePeriod", "plot")
 my.stat.plot(TI, "InvoiceSeason", "plot")
 my.stat.plot(TI, "InvoiceMon", "plot")
 
 library(reshape2)
-# cast to wide columns
+# cast to wide columns #
 period.stat <- dcast(TI, CustomerID~InvoicePeriod, fun.aggregate = length, fill = 0)
 season.stat <- dcast(TI, CustomerID~InvoiceSeason, fun.aggregate = length, fill = 0)
 weekday.stat <- dcast(TI, CustomerID~InvoiceWeekDays, fun.aggregate = length, fill=0)
 
+# ave.interval #
 TI <- TI %>%
   arrange(CustomerID,InvoiceNo,date) %>%
   group_by(CustomerID) %>%
@@ -165,11 +174,91 @@ cust.stat <- my.joinbyID(aveUP,"CustomerID")
 
 # returned amount/total spending #
 cust.stat <- cust.stat %>%
-  mutate(`%retAmount`=round(returnPrice/ttlSpend,4))
+  mutate(retAmount=round(returnPrice/ttlSpend,4))
+# NOTICE: will cause Inf when divided by 0, so here we fillInf by 1 #
+cust.stat$retAmount <- my.fillInf(cust.stat$retAmount, 1)
 
 # country #
 country <- unique(ecdf[,7:8])
 dup <- which(duplicated(country$CustomerID))
 country <- country[-dup,]
 cust.stat <- my.joinbyID(country, "CustomerID")
+
+###############################################################
+### product description clustering and its related features ###
+###############################################################
+
+# source("desc_kmeans.R") #
+desc <- readRDS("desc_cluster.Rds")
+
+# append description's cluster to ecdf #
+ecdf$cluster <- desc[match(ecdf$Description,desc$Description),]$cluster
+
+# calculate a customer spend how much on products of each cluster #
+tmp <- ecdf %>% group_by(CustomerID, cluster) %>% summarize(spend=sum(Quantity*UnitPrice))
+
+# convert to wide array using dcast, customer vs cluster #
+cluster.spend.stat <- dcast(tmp, CustomerID~cluster, value.var = "spend", fill=0)
+
+# rename for better understandning #
+colnames(cluster.spend.stat)[-1] <- paste0("ttlSpend.cluster", colnames(cluster.spend.stat)[-1])
+rm(tmp) # remove the temporary data.frame
+
+# merge into cust.stat #
+cust.stat <- my.joinbyID(cluster.spend.stat, "CustomerID")
+
+######################################
+# dimension reduction and clustering #
+######################################
+
+# remove customers whose transaction count is NA (30 people)
+cust.stat <- cust.stat[-which(is.na(cust.stat$transactions)),]
+
+ 
+# data to dimension reduction, remove  CustomerID (1st column) and Country
+tmp = cust.stat[,-c(1,grep("Country", colnames(cust.stat)))]
+
+# set a formula for PCA, "~." means all features are used
+pca = prcomp(formula = ~., data = tmp, center=TRUE, scale=TRUE)
+
+vars <- (pca$sdev)^2        # explained variance of each transformed dimension
+props <- vars / sum(vars)   # explained variance ratio 
+cumulative.props <- cumsum(props)  # cumulative explained variance ratio
+plot(cumulative.props)
+abline(h=0.8)
+
+# use the first 10 transformed dimensions by PCA as features to kmeans clustering #
+fviz_nbclust(pca$x[,1:10], 
+             FUNcluster = kmeans,   # K-Means
+             method = "silhouette", # Avg. Silhouette
+             k.max = 10             # max number of clusters
+) + labs(title="silhouette Method for K-Means")
+# Result: suggested number of clusters = 2 -> it is not good
+
+# Thus, we apply T-sne to conduct dimension reduction
+# Reference: https://www.analyticsvidhya.com/blog/2017/01/t-sne-implementation-r-python/
+library(Rtsne)
+
+# conduct tsne using default setup, output dimension = 2 #
+tsne <- Rtsne(tmp)
+
+# adopt the transformed two dimensions as features to conduct kmeans clustering #
+fviz_nbclust(tsne$Y, 
+             FUNcluster = kmeans,   # K-Means
+             method = "silhouette", # Avg. Silhouette
+             k.max = 10           # max number of clusters
+) + labs(title="silhouette Method for K-Means")
+
+# according to the above plot, the number of clusters is 5 #
+mycluster <- kmeans(tsne$Y,centers = 5)
+
+# plot clustering result by clusplot #
+library(cluster)
+clusplot(tsne$Y, mycluster$cluster, color=TRUE, shade=TRUE, labels=0, lines=0)
+
+# resulting cluster appends into our cust.stat#
+cust.stat$res.Cluster <- mycluster$cluster
+
+## need further analysis on the resulting clustering ##
+## visualize each feature by clusters
 
