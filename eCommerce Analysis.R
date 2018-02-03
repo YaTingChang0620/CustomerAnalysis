@@ -1,5 +1,5 @@
 # install new packages if not installed before
-requireLibrary <- c("dbscan", "Rtsne", "tidyverse", "lubridate", "stringr", "reshape2", "factoextra")
+requireLibrary <- c("Rtsne", "tidyverse", "lubridate", "stringr", "reshape2", "factoextra")
 for(lib in requireLibrary){
     if(!(lib %in% installed.packages())) install.packages(lib)
 }
@@ -37,15 +37,15 @@ source("utils.R") # to include functions in utils.R
 # saveRDS(ecdf, file="ecdf.Rds")
 
 ecdf <- readRDS("ecdf.Rds")
-
+    
 ## Exploration(by customers)##
 cust.stat <- data.frame(CustomerID=unique(ecdf$CustomerID))
 
 # total transactions #
-trans <- ecdf %>%
-  filter(!str_detect(InvoiceNo,"C")) %>%
-  group_by(CustomerID) %>%
-  summarise(transactions=length(unique(InvoiceNo)))
+trans <- ecdf %>% 
+    filter(!str_detect(InvoiceNo,"C")) %>%
+    group_by(CustomerID) %>%
+    summarise(transactions=length(unique(InvoiceNo)))
 cust.stat <- my.joinbyID(trans,"CustomerID")
 
 # returns #
@@ -124,10 +124,10 @@ TI$InvoiceSeason <- factor(TI$InvoiceSeason, levels = c("spring","summer","autum
 TI$InvoicePeriod <- factor(TI$InvoicePeriod, levels = c("morning","noon","afternoon","night"))
 
 # plot #
-my.stat.plot(TI, "InvoiceHour", "plot")
-my.stat.plot(TI, "InvoicePeriod", "plot")
-my.stat.plot(TI, "InvoiceSeason", "plot")
-my.stat.plot(TI, "InvoiceMon", "plot")
+# my.stat.plot(TI, "InvoiceHour", "plot")
+# my.stat.plot(TI, "InvoicePeriod", "plot")
+# my.stat.plot(TI, "InvoiceSeason", "plot")
+# my.stat.plot(TI, "InvoiceMon", "plot")
 
 library(reshape2)
 # cast to wide columns #
