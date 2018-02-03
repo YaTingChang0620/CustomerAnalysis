@@ -1,9 +1,9 @@
 # install new packages if not installed before
-requireLibrary <- c("dbscan", "Rtsne", "tidyverse", "lubridate", "stringr", "reshape2")
+requireLibrary <- c("dbscan", "Rtsne", "tidyverse", "lubridate", "stringr", "reshape2", "factoextra")
 for(lib in requireLibrary){
     if(!(lib %in% installed.packages())) install.packages(lib)
 }
-
+library(factoextra)
 library(tidyverse)
 library(lubridate)
 library(stringr)
@@ -158,12 +158,12 @@ cust.stat <- my.joinbyID(ttl,"CustomerID")
 
 # Average Spending # 
 cust.stat <- cust.stat %>% group_by(CustomerID) %>%
-    mutate(aveSpend= 
-               if(ttlSpend>0 && transactions==return){
-                   round(ttlSpend/transactions,2)
-                }else if(ttlSpend>0){
-                   round(ttlSpend/(transactions-return),2)
-                }else ttlSpend)
+    mutate(aveSpend=ttlSpend/transactions)
+               # if(ttlSpend>0 && transactions==return){
+               #     round(ttlSpend/transactions,2)
+               #  }else if(ttlSpend>0){
+               #     round(ttlSpend/(transactions-return),2)
+               #  }else ttlSpend)
 
 # average unit price #
 aveUP <- ecdf %>%
@@ -214,6 +214,8 @@ cust.stat <- my.joinbyID(cluster.spend.stat, "CustomerID")
 # remove customers whose transaction count is NA (30 people)
 cust.stat <- cust.stat[-which(is.na(cust.stat$transactions)),]
 
+# only focus on ttlSpend > 0
+cust.stat <- cust.stat[cust.stat$ttlSpend>0,]
  
 # data to dimension reduction, remove  CustomerID (1st column) and Country
 tmp = cust.stat[,-c(1,grep("Country", colnames(cust.stat)))]
@@ -250,15 +252,66 @@ fviz_nbclust(tsne$Y,
 ) + labs(title="silhouette Method for K-Means")
 
 # according to the above plot, the number of clusters is 5 #
-mycluster <- kmeans(tsne$Y,centers = 5)
+mycluster <- kmeans(tsne$Y,centers = 4)
 
 # plot clustering result by clusplot #
 library(cluster)
-clusplot(tsne$Y, mycluster$cluster, color=TRUE, shade=TRUE, labels=0, lines=0)
-
+png("customer_tsne_kmeans.png",width=1200, height=1200, units = 'px', res = 180)
+clusplot(tsne$Y, mycluster$cluster, color=TRUE, shade=TRUE, labels=0, lines=0, 
+         main="Customer Clustering using T-sne Transformed features", col.p = mycol.dark[2],col.clus = mycol.dark[c(1,3,4,5)], cex = 0.5 )
+dev.off()
 # resulting cluster appends into our cust.stat#
-cust.stat$res.Cluster <- mycluster$cluster
+cust.stat$res.Cluster <- factor(mycluster$cluster, levels = seq(1,4))
 
 ## need further analysis on the resulting clustering ##
 ## visualize each feature by clusters
+library(ggplot2)
+
+# boxplot of each feature by cluster #
+for( this in colnames(cust.stat)[-c(1,grep("Country", colnames(cust.stat)),ncol(cust.stat))]){
+    bounds <- quantile(cust.stat[[this]],c(0.01,0.99))
+    pd <- cust.stat[between(cust.stat[[this]],bounds[1],bounds[2]),]
+    pd <- data.frame(x=pd$res.Cluster, y = pd[[this]])
+    ggplot(data=pd, aes(x=x, y=y, fill=x)) +
+        geom_boxplot()+
+        theme_bw()+
+        scale_fill_manual(values=mycol[4:8])+
+        xlab("Customer Cluster")+
+        ylab(this)
+    ggsave(paste0("plot/byCluster_",this,".png"))
+}
+
+for( this in colnames(cust.stat)[-c(1,grep("Country", colnames(cust.stat)),
+                                    grep("ttlSpend.cluster",colnames(cust.stat)),ncol(cust.stat))]){
+    bounds <- quantile(cust.stat[[this]],c(0.01,0.99))
+    pd <- cust.stat[between(cust.stat[[this]],bounds[1],bounds[2]),]
+    pd <- data.frame(variable=pd$res.Cluster, value = pd[[this]])
+    pd <- my.summarySE(pd, measurevar="value", groupvars = "variable")
+    ggplot(data=pd, aes(x=variable, y=value, fill=variable)) +
+        geom_bar(position=position_dodge(.9), colour="black", stat="identity") +
+        geom_errorbar(position=position_dodge(.9), width=.25, aes(ymin=value-ci, ymax=value+ci)) +
+        theme_bw()+
+        scale_fill_manual(values=mycol)+
+        xlab("Customer Cluster")+
+        ylab(this)
+    ggsave(paste0("plot/byCluster_",this,".png"))
+}
+
+pd <- cust.stat[,c(grep("ttlSpend.cluster", colnames(cust.stat)),ncol(cust.stat))]
+pd <- melt(pd, id.vars = "res.Cluster")
+bounds <- quantile(pd[["value"]],c(0.05,0.95))
+pd <- pd[between(pd[["value"]],bounds[1],bounds[2]),]
+pd = my.summarySE(pd,measurevar="value",groupvars=c("res.Cluster", "variable"))
+
+
+for(i in seq(1,4)){
+    ggplot(pd[pd$res.Cluster==i,], aes(x=variable, y=value, fill=variable),log10="y") +
+        geom_bar(position=position_dodge(.9), colour="black", stat="identity") +
+        geom_errorbar(position=position_dodge(.9), width=.25, aes(ymin=value-ci, ymax=value+ci)) +
+        theme_bw()+
+        scale_fill_manual(values=mycol)+
+        # facet_wrap(~res.Cluster)+
+        theme(axis.text.x = element_text(angle = 30, hjust = 1))
+    ggsave(paste0("plot/byCluster",i,"_product_distribution.png"))
+}
 
