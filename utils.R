@@ -113,3 +113,24 @@ my.summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
     
     return(datac)
 }
+
+classification_metric <- function(actual_class, predicted_class){
+    #stopifnot(length(unique(predicted_class))==length(unique(actual_class)))
+    res = list()
+    
+    conf_mat = table(actual_class, predicted_class) # left is answer, top is prediction
+    TN = conf_mat[1,1]
+    FN = conf_mat[1,2]
+    FP = conf_mat[2,1]
+    TP = conf_mat[2,2]
+    
+    res[["accuracy"]] = (TN+TP)/(TN+FN+FP+TP)
+    res[["sensitivity"]] = (TP)/(TP+FN)
+    res[["specificity"]] = (TN)/(TN+FP)
+    res[["precision"]] = (TP)/(TP+FP)
+    res[["recall"]] = (TP)/(TP+FN) # same as sensitivity
+    
+    return(res)
+}
+
+
