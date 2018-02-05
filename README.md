@@ -5,5 +5,5 @@
 2. Analyzed customer behaviors and conducted customer segmentations for personalized recommendations (data-driven marketing, computational marketing)
 - keywords: behavorial analysis, customer segmentation (clustering), data-driven marketing, personalized recommendation
 
-3. Predict whether customers return in the next month by building a logistic regression model, achieving 78% accuracy and 75% AUC in 5-fold cross-validation
+3. Built a logistic regression model to predict whether customers return in the next month, achieving 78% accuracy and 75% AUC in 5-fold cross-validation
 - keywords: return rate, logistic regression, binary classification, cross-validation
