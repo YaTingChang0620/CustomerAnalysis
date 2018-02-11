@@ -8,6 +8,8 @@ library(tidyverse)
 library(lubridate)
 library(stringr)
 source("utils.R") # to include functions in utils.R
+library(cluster)
+
 
 # ecdf <-read_csv("data.csv")
 
@@ -178,11 +180,6 @@ cust.stat <- cust.stat %>%
 # NOTICE: will cause Inf when divided by 0, so here we fillInf by 1 #
 cust.stat$retAmount <- my.fillInf(cust.stat$retAmount, 1)
 
-# country #
-country <- unique(ecdf[,7:8])
-dup <- which(duplicated(country$CustomerID))
-country <- country[-dup,]
-cust.stat <- my.joinbyID(country, "CustomerID")
 
 ###############################################################
 ### product description clustering and its related features ###
@@ -216,7 +213,7 @@ cust.stat <- cust.stat[-which(is.na(cust.stat$transactions)),]
 
  
 # data to dimension reduction, remove  CustomerID (1st column) and Country
-tmp = cust.stat[,-c(1,grep("Country", colnames(cust.stat)))]
+tmp = cust.stat[,-1]
 
 # set a formula for PCA, "~." means all features are used
 pca = prcomp(formula = ~., data = tmp, center=TRUE, scale=TRUE)
@@ -253,7 +250,7 @@ fviz_nbclust(tsne$Y,
 mycluster <- kmeans(tsne$Y,centers = 5)
 
 # plot clustering result by clusplot #
-library(cluster)
+
 clusplot(tsne$Y, mycluster$cluster, color=TRUE, shade=TRUE, labels=0, lines=0)
 
 # resulting cluster appends into our cust.stat#

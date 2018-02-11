@@ -1,14 +1,15 @@
 library(factoextra)
 library(tidyverse)
 library(reshape2)
+library(wordcloud)
 source("utils.R")
+
 local({
     ecdf <- readRDS("ecdf.Rds")
     
     d <- read_csv("desc_matrix.csv")
     d <- d[which(!is.na(match(d$Description,ecdf$Description))),]
     
-    ### 
     # get statistics by Description
     desc.stat <- ecdf %>% group_by(Description) %>% summarize(price.level = mean(UnitPrice))
     # cut into several pre-determined bins (observations from quantile)
@@ -21,7 +22,7 @@ local({
     d <- merge(d,desc.stat,by="Description")
     
     # same procedures as the above but in viewpoint of quantity
-    desc.stat <- ecdf %>% group_by(Description) %>% summarize(quantity.level = mean(Quantity))
+    desc.stat <- ecdf %>% group_by(Description) %>% summarize(quantity.level = median(Quantity))
     desc.stat$quantity.level <- as.numeric(cut(desc.stat$quantity.level, breaks = c(-Inf,1,3,5,7,9,15,Inf)))
     desc.stat <- dcast(desc.stat, Description~quantity.level,fun.aggregate = length)
     colnames(desc.stat)[-1] <- paste0("QL",colnames(desc.stat)[-1])
@@ -50,8 +51,12 @@ local({
     # assign each description to its corresponding cluster
     d$cluster <- kmeans.cluster$cluster
     
-    library(wordcloud)
+    tmp <- d[d$cluster==1,-c(1,ncol(d))]
+    i.PL <- grep("PL",colnames(tmp))
+    i.QL <- grep("QL",colnames(tmp))
+    pd <- tmp[,-c(i.PL,i.QL)]
     
+ 
     for(k in unique(d$cluster)){
         png(paste0("plot/stat_cluster",k,".png"), width = 1800, height=600, res=200, units = 'px')
         par(mfrow=c(1,3)) # plot with 1 row, 3 column
@@ -64,16 +69,14 @@ local({
         pd <- tmp[,-c(i.PL,i.QL)]
         
         # wordcloud
-        # colSums(pd) => obtain the frequency of a tag
-        # melt a dataframe (from wide to long, is a reverse operation of dcast)
-        pd <- melt(colSums(pd), value.name = "freq")
-        pd$word <- rownames(pd)
-        # normalize to better visualize
-        pd$freq <- round((pd$freq / sum(pd$freq))*1000,0)
-        # remove tag "art" because it is too widely used
-        pd <- pd[-which(pd$word=="art"),]
-        wordcloud(pd$word, pd$freq, min.freq = 1, random.order = F, ordered.colors = F, 
-                  colors = rev(mycol.dark))
+        pd = pd %>% gather(key=word,value=freq) %>%
+          group_by(word) %>%
+          summarise(freq = sum(freq)) %>%
+          mutate(freq = round(freq/sum(freq)*1000,0)) %>%
+          filter(word != 'art') 
+        
+        wordcloud(pd$word,pd$freq,min.freq = 1, random.order = F, ordered.colors = F,colors = rev(mycol.dark))
+        
         # Price level
         pd <- tmp[,i.PL]
         pd <- colSums(pd) # obtain the count in each level
@@ -88,6 +91,6 @@ local({
         dev.off()
     }
     
-    saveRDS(d, file="desc_cluster.Rds")
+    saveRDS(d, file="desc_cluster.rds")
 })
 
