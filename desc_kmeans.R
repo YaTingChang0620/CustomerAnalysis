@@ -16,6 +16,14 @@ local({
     # cut into several pre-determined bins (observations from quantile)
     desc.stat$price.level <- as.numeric(cut(desc.stat$price.level, breaks = c(0,1,1.5,2,3,5,8,Inf)))
     
+    # name <- c("1","1-1.5","1.5-2","2-3","3-5","5-8",">8")
+    # df <- table(desc.stat$price.level)
+    # png("hist_price_level.png")
+    # pp <- barplot(df, axes=F, xlab="Price level", ylab="Number of products",yaxt='n')
+    # axis(side=1, at=pp[,1], labels=name)
+    # axis(side=2, at=seq(0,1500,100),labels = seq(0,1500,100),las=2)
+    # dev.off()
+    
     # dcast to wide array
     desc.stat <- dcast(desc.stat, Description~price.level,fun.aggregate = length)
     
@@ -28,6 +36,16 @@ local({
     # same procedures as the above but in viewpoint of quantity
     desc.stat <- ecdf %>% group_by(Description) %>% summarize(quantity.level = median(Quantity))
     desc.stat$quantity.level <- as.numeric(cut(desc.stat$quantity.level, breaks = c(-Inf,1,3,5,7,9,15,Inf)))
+    
+    # brs <- c(-Inf,1,3,5,7,9,15,Inf)
+    # name <- c("1","2-3","4-5","6-7","8-9","10-15",">15")
+    # df <- table(desc.stat$quantity.level)
+    # png("hist_quantity_level.png")
+    # pp <- barplot(df, axes=F, xlab="Quantity level", ylab="Number of products",xaxt='n',yaxt='n')
+    # axis(side=1, at=pp[,1],labels = name)
+    # axis(side=2, at=seq(0,1500,100),labels = seq(0,1500,100),las=2)
+    # dev.off()
+    
     desc.stat <- dcast(desc.stat, Description~quantity.level,fun.aggregate = length)
     colnames(desc.stat)[-1] <- paste0("QL",colnames(desc.stat)[-1])
     d <- merge(d,desc.stat,by="Description")

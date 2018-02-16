@@ -239,7 +239,7 @@ X <- X[sample(1:nrow(X)),]
 k = 5
 folds <- seq(1, nrow(X), length.out=k+1) %>% round(digits = 0)
 result <- list()
-for(i in seq(1,k-1)){
+for(i in seq(1,k)){
     Xtest <- X[folds[i]:folds[i+1],]
     Xtrain <- X[-(folds[i]:folds[i+1]),]
     
@@ -253,7 +253,7 @@ for(i in seq(1,k-1)){
     # because the original dataset => 0.397 #
     res <- classification_metric(Xtest$Y[as.numeric(names(prob))], prob>=mean(Xtrain$Y)) %>% unlist()
     library(MLmetrics)
-    # res$AUC <- AUC(prob, Xtest$Y[as.numeric(names(prob))])
+    res$AUC <- AUC(prob, Xtest$Y[as.numeric(names(prob))])
     result[[i]] <- unlist(res)
 }
 result <- do.call("rbind", result) %>% as.data.frame()

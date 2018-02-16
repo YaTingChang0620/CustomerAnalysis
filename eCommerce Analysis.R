@@ -50,6 +50,15 @@ trans <- ecdf %>%
     summarise(transactions=length(unique(InvoiceNo)))
 cust.stat <- my.joinbyID(trans,"CustomerID")
 
+# brs <- c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20,50,100,Inf)
+# name <- c(seq(1,15),"16-20","21-50","51-100",">100")
+# df <- table(cut(trans$transactions,breaks = brs))
+# png("hist_transacation.png",width = 1024, height=512, units='px')
+# pp <- barplot(df, axes=F, xlab="Number of transactions", ylab="Number of customers",xaxt='n',ylim=c(0,1500))
+# axis(side=1, at=pp[,1],labels = name)
+# axis(side=2, at=seq(0,1500,100),labels = seq(0,1500,100),las=2)
+# dev.off()
+
 # returns #
 # 1). some customers might not return ALL products they purchased
 # 2). for returns>transactions: return products purchased earlier than year 2010 (49rows)
@@ -95,7 +104,6 @@ ipt <- ipt_temp %>%
   summarise(itemPT=median(ttl))
 
 cust.stat <- my.joinbyID(ipt,"CustomerID")
-
 
 # Time Interval(day): #
 ecdf$date <- mdy(str_split(ecdf$InvoiceDate," ",simplify = TRUE)[,1])
@@ -157,6 +165,15 @@ ttl<- ecdf %>%
   group_by(CustomerID) %>%
   summarise(ttlSpend=sum(Quantity*UnitPrice))
 cust.stat <- my.joinbyID(ttl,"CustomerID")
+
+# brs <- c(0,100,200,300,400,500,750,1000,1500,2000,3500,5000,Inf)
+# name <- c(seq(100,500,100),"500-750","750-1000","1000-1500", "1500-2000","2000-3500","3500-5000",">5000")
+# df <- table(cut(cust.stat$ttlSpend,breaks = brs))
+# png("hist_ttlSpend.png",width = 1024, height=512, units='px')
+# pp <- barplot(df, axes=F, xlab="Total expense", ylab="Number of customers",xaxt='n')
+# axis(side=1, at=pp[,1],labels = name)
+# axis(side=2, at=seq(0,600,50),labels = seq(0,600,50),las=2)
+# dev.off()
 
 # Average Spending # 
 cust.stat <- cust.stat %>% group_by(CustomerID) %>%
