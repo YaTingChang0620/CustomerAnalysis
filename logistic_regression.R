@@ -17,7 +17,7 @@ ecdf$date <- mdy(str_split(ecdf$InvoiceDate," ",simplify = TRUE)[,1])
 
 # select the log during 2010/12 - 2011/9 as observe
 i <- which(year(ecdf$date) == 2010)
-i <- c(i, which((year(ecdf$date)<=2011 & month(ecdf$date) <= 10)))
+i <- c(i, which((year(ecdf$date)<=2011 & month(ecdf$date) <= 11)))
 observe <- ecdf[i,]
 test <- ecdf[-i,]
 
@@ -228,5 +228,34 @@ prob <- predict(logic.model, newdata=Xtest, type='response')
 
 # calculate the accuracy #
 # because the original dataset => 0.397 #
-print(classification_metric(Xtest$Y[as.numeric(names(prob))], prob>=0.4))
+print(classification_metric(Xtest$Y[as.numeric(names(prob))], prob>=mean(Xtrain$Y)))
+library(MLmetrics)
+AUC(prob, Xtest$Y[as.numeric(names(prob))])
+
+###########################
+# k-fold cross validation #
+###########################
+X <- X[sample(1:nrow(X)),]
+k = 5
+folds <- seq(1, nrow(X), length.out=k+1) %>% round(digits = 0)
+result <- list()
+for(i in seq(1,k-1)){
+    Xtest <- X[folds[i]:folds[i+1],]
+    Xtrain <- X[-(folds[i]:folds[i+1]),]
+    
+    # Logistic regression #
+    logic.model <- glm(Y~., data=Xtrain, family='binomial')
+    
+    # predict the label of test dataset #
+    prob <- predict(logic.model, newdata=Xtest, type='response')
+    
+    # calculate the accuracy #
+    # because the original dataset => 0.397 #
+    res <- classification_metric(Xtest$Y[as.numeric(names(prob))], prob>=mean(Xtrain$Y)) %>% unlist()
+    library(MLmetrics)
+    # res$AUC <- AUC(prob, Xtest$Y[as.numeric(names(prob))])
+    result[[i]] <- unlist(res)
+}
+result <- do.call("rbind", result) %>% as.data.frame()
+print(apply(result,2,mean))
 

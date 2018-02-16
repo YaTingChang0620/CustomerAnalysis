@@ -126,10 +126,10 @@ TI$InvoiceSeason <- factor(TI$InvoiceSeason, levels = c("spring","summer","autum
 TI$InvoicePeriod <- factor(TI$InvoicePeriod, levels = c("morning","noon","afternoon","night"))
 
 # plot #
-# my.stat.plot(TI, "InvoiceHour", "plot")
-# my.stat.plot(TI, "InvoicePeriod", "plot")
-# my.stat.plot(TI, "InvoiceSeason", "plot")
-# my.stat.plot(TI, "InvoiceMon", "plot")
+my.stat.plot(TI, "InvoiceHour", "plot")
+my.stat.plot(TI, "InvoicePeriod", "plot")
+my.stat.plot(TI, "InvoiceSeason", "plot")
+my.stat.plot(TI, "InvoiceMon", "plot")
 
 library(reshape2)
 # cast to wide columns #
@@ -252,17 +252,13 @@ fviz_nbclust(tsne$Y,
 mycluster <- kmeans(tsne$Y,centers = 4)
 
 # plot clustering result by clusplot #
-<<<<<<< HEAD
-
 clusplot(tsne$Y, mycluster$cluster, color=TRUE, shade=TRUE, labels=0, lines=0)
 
-=======
 library(cluster)
 png("customer_tsne_kmeans.png",width=1200, height=1200, units = 'px', res = 180)
 clusplot(tsne$Y, mycluster$cluster, color=TRUE, shade=TRUE, labels=0, lines=0, 
          main="Customer Clustering using T-sne Transformed features", col.p = mycol.dark[2],col.clus = mycol.dark[c(1,3,4,5)], cex = 0.5 )
 dev.off()
->>>>>>> 04527de698a8cbb4d8f63976767a19dd2b61ca31
 # resulting cluster appends into our cust.stat#
 cust.stat$res.Cluster <- factor(mycluster$cluster, levels = seq(1,4))
 

@@ -3,7 +3,7 @@ library(lubridate)
 library(stringr)
 
 ### user-defined color array ###
-mycol <- c('#8dd3c7','#ffffb3','#bebada','#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#d9d9d9','#bc80bd')
+mycol <- c('#fb8072','#80b1d3','#fdb462','#b3de69','#fccde5','#8dd3c7','#ffffb3','#bebada','#d9d9d9','#bc80bd')
 mycol.dark <- c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#6a3d9a','#a65628','#f781bf','#999999')
 ### user-defined functions ###
 my.fillNA <- function(x, fill){
