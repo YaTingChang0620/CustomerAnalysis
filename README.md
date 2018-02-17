@@ -1,4 +1,4 @@
-### eCommerce Customer Segmentation and Return Prediction  
+### eCommerce Customer Segmentation and Repurchase Prediction  
 
 #### Project Description
 Analyzed transactions occurring between 01/12/2010 and 09/12/2011 for an UK-based online retailer.   
