@@ -1,9 +1,18 @@
-# CustomerAnalysis
-1. Characterized products using text analysis and provided insight on product categories by K-means clustering
-- keywords: product characterization, product categorization, clustering, keyword extraction, text mining
+### eCommerce Customer Segmentation and Return Prediction  
 
-2. Analyzed customer behaviors and conducted customer segmentations for personalized recommendations (data-driven marketing, computational marketing)
-- keywords: behavorial analysis, customer segmentation (clustering), data-driven marketing, personalized recommendation
+#### Project Description
+Analyzed transactions occurring between 01/12/2010 and 09/12/2011 for an UK-based online retailer.   
+The company mainly sells unique all-occasion gifts. Many customers of the company are wholesalers.  
+Data set source: kaggle[https://www.kaggle.com/carrie1/ecommerce-data] 
 
-3. Built a logistic regression model to predict whether customers return in the next month, achieving 78% accuracy and 75% AUC in 5-fold cross-validation
-- keywords: return rate, logistic regression, binary classification, cross-validation
+#### Objectives
+* Cluster customers by recognizing their online purchasing pattern   
+* Predict customer repurchase rate  
+
+#### Techniques
+* Text Mining  
+* Dimension Reduction: Principla Component Analysis, tSNE  
+* Clustering: k-means    
+* Predictive Modeling: Logistic Regression    
+
+
