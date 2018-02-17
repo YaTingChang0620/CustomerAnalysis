@@ -1,5 +1,5 @@
 # install new packages if not installed before
-requireLibrary <- c("tidyverse", "lubridate", "stringr", "reshape2", "e1071")
+requireLibrary <- c("tidyverse", "lubridate", "stringr", "reshape2","MLmetrics")
 for(lib in requireLibrary){
     if(!(lib %in% installed.packages())) install.packages(lib)
 }
@@ -7,6 +7,7 @@ library(tidyverse)
 library(lubridate)
 library(stringr)
 source("utils.R")
+library(MLmetrics)
 
 # Question: whether customers will come back in the following three months?
 # Observation period: 2010/12 - 2011/9
@@ -26,14 +27,23 @@ test <- ecdf[-i,]
 ecdf <- observe
 
 ## Exploration(by customers)##
-cust.stat <- data.frame(CustomerID=unique(ecdf$CustomerID),stringsAsFactors = F)
+cust.stat <- data.frame(CustomerID=unique(ecdf$CustomerID))
 
 # total transactions #
-trans <- ecdf %>%
+trans <- ecdf %>% 
     filter(!str_detect(InvoiceNo,"C")) %>%
     group_by(CustomerID) %>%
     summarise(transactions=length(unique(InvoiceNo)))
 cust.stat <- my.joinbyID(trans,"CustomerID")
+
+# brs <- c(0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,20,50,100,Inf)
+# name <- c(seq(1,15),"16-20","21-50","51-100",">100")
+# df <- table(cut(trans$transactions,breaks = brs))
+# png("hist_transacation.png",width = 1024, height=512, units='px')
+# pp <- barplot(df, axes=F, xlab="Number of transactions", ylab="Number of customers",xaxt='n',ylim=c(0,1500))
+# axis(side=1, at=pp[,1],labels = name)
+# axis(side=2, at=seq(0,1500,100),labels = seq(0,1500,100),las=2)
+# dev.off()
 
 # returns #
 # 1). some customers might not return ALL products they purchased
@@ -43,6 +53,7 @@ ret <- ecdf %>%
     group_by(CustomerID) %>%
     summarise(return=length(unique(InvoiceNo)))
 cust.stat <- my.joinbyID(ret,"CustomerID")
+
 cust.stat <- cust.stat %>%
     mutate(return=ifelse(is.na(return),0,return))
 
@@ -81,34 +92,34 @@ ipt <- ipt_temp %>%
 
 cust.stat <- my.joinbyID(ipt,"CustomerID")
 
-
 # Time Interval(day): #
-ecdf$date <- mdy(str_split(ecdf$InvoiceDate," ",simplify = TRUE)[,1])
-## another way:
-# ecdf %>%
-#   mutate(date=mdy_hm(ecdf$InvoiceDate))
+ecdf <- ecdf %>% mutate(date=mdy_hm(ecdf$InvoiceDate))
 
 TI <- ecdf %>%
     filter(!str_detect(InvoiceNo,"C")) %>%
     select(CustomerID,InvoiceNo,InvoiceDate,date)
+
 TI <- unique(TI[,1:4])
 
-TI <- TI %>% mutate(InvoiceHour=substr(InvoiceDate,(nchar(InvoiceDate)-4),nchar(InvoiceDate)-3),
-                    InvoiceMon=month(TI$date),
-                    InvoiceWeekDays=weekdays(TI$date))
+TI <- TI %>% mutate(InvoiceHour=hour(date) %>% as.factor(),
+                    InvoiceMon=month(date) %>% as.factor(),
+                    InvoiceWeekDays=weekdays(date) %>% factor(levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Sunday")),
+                    InvoiceSeason=month(date) %>% my.getSeason() %>% factor(levels = c("spring","summer","autumn","winter")),
+                    InvoicePeriod=hour(date) %>% my.getPeriod() %>% factor(levels = c("morning","noon","afternoon","night"))
+)
 
-TI$InvoiceWeekDays <- factor(TI$InvoiceWeekDays,levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Sunday")) # no Saturday
-TI$InvoiceHour <- as.numeric(TI$InvoiceHour)
-TI$InvoiceMon <- as.numeric(TI$InvoiceMon)
+# TI$InvoiceWeekDays <- factor(TI$InvoiceWeekDays,levels = c("Monday","Tuesday","Wednesday","Thursday","Friday","Sunday")) # no Saturday
+# TI$InvoiceHour <- as.numeric(TI$InvoiceHour)
+# TI$InvoiceMon <- as.numeric(TI$InvoiceMon)
 # my.getSeason and my.getPeriod #
-TI <- TI %>% mutate(InvoiceSeason=my.getSeason(InvoiceMon),
-                    InvoicePeriod=my.getPeriod(InvoiceHour))
+# TI <- TI %>% mutate(InvoiceSeason=my.getSeason(InvoiceMon) %>% factor(levels = c("spring","summer","autumn","winter")),
+#                     InvoicePeriod=my.getPeriod(InvoiceHour) %>% factor(levels = c("morning","noon","afternoon","night")))
 
 # because the below features are discrete => to factor #
-TI$InvoiceHour <- factor(TI$InvoiceHour, levels=seq(min(TI$InvoiceHour), max(TI$InvoiceHour)))
-TI$InvoiceMon <- factor(TI$InvoiceMon, levels=seq(min(TI$InvoiceMon), max(TI$InvoiceMon)))
-TI$InvoiceSeason <- factor(TI$InvoiceSeason, levels = c("spring","summer","autumn","winter"))
-TI$InvoicePeriod <- factor(TI$InvoicePeriod, levels = c("morning","noon","afternoon","night"))
+# TI$InvoiceHour <- factor(TI$InvoiceHour, levels=seq(min(TI$InvoiceHour), max(TI$InvoiceHour)))
+# TI$InvoiceMon <- factor(TI$InvoiceMon, levels=seq(min(TI$InvoiceMon), max(TI$InvoiceMon)))
+# TI$InvoiceSeason <- factor(TI$InvoiceSeason, levels = c("spring","summer","autumn","winter"))
+# TI$InvoicePeriod <- factor(TI$InvoicePeriod, levels = c("morning","noon","afternoon","night"))
 
 # plot #
 # my.stat.plot(TI, "InvoiceHour", "plot")
@@ -116,7 +127,6 @@ TI$InvoicePeriod <- factor(TI$InvoicePeriod, levels = c("morning","noon","aftern
 # my.stat.plot(TI, "InvoiceSeason", "plot")
 # my.stat.plot(TI, "InvoiceMon", "plot")
 
-library(reshape2)
 # cast to wide columns #
 period.stat <- dcast(TI, CustomerID~InvoicePeriod, fun.aggregate = length, fill = 0)
 season.stat <- dcast(TI, CustomerID~InvoiceSeason, fun.aggregate = length, fill = 0)
@@ -126,10 +136,8 @@ weekday.stat <- dcast(TI, CustomerID~InvoiceWeekDays, fun.aggregate = length, fi
 TI <- TI %>%
     arrange(CustomerID,InvoiceNo,date) %>%
     group_by(CustomerID) %>%
-    summarise(ave.interval=round(mean(diff(date)),2))
-
-TI$ave.interval <- my.fillNA(TI$ave.interval,0)
-TI$ave.interval <- as.numeric(TI$ave.interval)
+    # date(): only date without detail hh:mm:ss
+    summarise(ave.interval= date %>% date() %>% diff() %>% mean() %>% round(digits = 2) %>% my.fillNA(fill=0) %>% as.numeric())
 
 cust.stat <- my.joinbyID(TI,"CustomerID")
 cust.stat <- my.joinbyID(period.stat, "CustomerID")
@@ -142,6 +150,15 @@ ttl<- ecdf %>%
     group_by(CustomerID) %>%
     summarise(ttlSpend=sum(Quantity*UnitPrice))
 cust.stat <- my.joinbyID(ttl,"CustomerID")
+
+# brs <- c(0,100,200,300,400,500,750,1000,1500,2000,3500,5000,Inf)
+# name <- c(seq(100,500,100),"500-750","750-1000","1000-1500", "1500-2000","2000-3500","3500-5000",">5000")
+# df <- table(cut(cust.stat$ttlSpend,breaks = brs))
+# png("hist_ttlSpend.png",width = 1024, height=512, units='px')
+# pp <- barplot(df, axes=F, xlab="Total expense", ylab="Number of customers",xaxt='n')
+# axis(side=1, at=pp[,1],labels = name)
+# axis(side=2, at=seq(0,600,50),labels = seq(0,600,50),las=2)
+# dev.off()
 
 # Average Spending # 
 cust.stat <- cust.stat %>% group_by(CustomerID) %>%
@@ -161,15 +178,10 @@ cust.stat <- my.joinbyID(aveUP,"CustomerID")
 
 # returned amount/total spending #
 cust.stat <- cust.stat %>%
-    mutate(retAmount=round(returnPrice/ttlSpend,4))
+    mutate(retAmount=round(returnPrice/ttlSpend,4) %>% my.fillInf(fill=1))
 # NOTICE: will cause Inf when divided by 0, so here we fillInf by 1 #
-cust.stat$retAmount <- my.fillInf(cust.stat$retAmount, 1)
+# cust.stat$retAmount <- my.fillInf(cust.stat$retAmount, 1)
 
-# country #
-country <- unique(ecdf[,7:8])
-dup <- which(duplicated(country$CustomerID))
-country <- country[-dup,]
-cust.stat <- my.joinbyID(country, "CustomerID")
 
 ###############################################################
 ### product description clustering and its related features ###
@@ -199,19 +211,17 @@ cust.stat <- my.joinbyID(cluster.spend.stat, "CustomerID")
 #######################
 
 # generate our answer from test period #
+# we calculate the ttlSpend in test period
 ans <- test %>% group_by(CustomerID) %>% summarize(ttlSpend=sum(Quantity*UnitPrice))
 
+# match the answers to cust.stat 
 cust.stat$futureSpend <- ans[match(cust.stat$CustomerID, ans$CustomerID),]$ttlSpend
 
-# remove two categorical features: CustomerID, Country and Answer #
-rm.vars <- c("CustomerID", "Country", "futureSpend")
-X <- cust.stat
-for( var in rm.vars){
-    X <- X[,-grep(var, colnames(X))]
-}
-
-# if futureSpend is not NA => come back; otherwise, not come back #
-X$Y <- (!is.na(cust.stat$futureSpend))+0
+# obtain data X
+X <- cust.stat %>% 
+    as.data.frame() %>% # make sure the data type of data.frame
+    mutate(Y = (!is.na(futureSpend))+0) %>% # prediction target, if futureSpend is not NA => come back; otherwise, not come back #
+    select(-CustomerID,-futureSpend)    # remove two features: CustomerID and futureSpend #
 
 # train test split #
 i.train <- sample(1:nrow(X))[1:(nrow(X)*0.8)]
@@ -228,9 +238,9 @@ prob <- predict(logic.model, newdata=Xtest, type='response')
 
 # calculate the accuracy #
 # because the original dataset => 0.397 #
-print(classification_metric(Xtest$Y[as.numeric(names(prob))], prob>=mean(Xtrain$Y)))
-library(MLmetrics)
-AUC(prob, Xtest$Y[as.numeric(names(prob))])
+print(classification_metric(Xtest$Y, prob>=mean(Xtrain$Y)))
+
+AUC(prob, Xtest$Y)
 
 ###########################
 # k-fold cross validation #
@@ -251,9 +261,9 @@ for(i in seq(1,k)){
     
     # calculate the accuracy #
     # because the original dataset => 0.397 #
-    res <- classification_metric(Xtest$Y[as.numeric(names(prob))], prob>=mean(Xtrain$Y)) %>% unlist()
+    res <- classification_metric(Xtest$Y, prob>=mean(Xtrain$Y)) %>% unlist()
     library(MLmetrics)
-    res$AUC <- AUC(prob, Xtest$Y[as.numeric(names(prob))])
+    res$AUC <- AUC(prob, Xtest$Y)
     result[[i]] <- unlist(res)
 }
 result <- do.call("rbind", result) %>% as.data.frame()
