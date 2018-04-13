@@ -15,4 +15,4 @@ The company mainly sells unique all-occasion gifts. Many customers of the compan
 * Clustering: k-means    
 * Predictive Modeling: Logistic Regression    
 
-
+Final Report: See [_here_](https://yatingchang0620.github.io/site/blog/ecommerce-analysis/) 
